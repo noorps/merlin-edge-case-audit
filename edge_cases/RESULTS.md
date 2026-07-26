@@ -1,71 +1,73 @@
-<h1 align="center">𓆝 𓆟 𓆞 merlin edge-case results 𓆞 𓆟 𓆝</h1>
+<h1 align="center">𓆝 𓆟 𓆞 what happened when i tested merlin 𓆞 𓆟 𓆝</h1>
 
 <p align="center">
-  one official sample CT, fourteen checks, and the failures left in on purpose.
+  one sample CT, fourteen slightly weird tests, and two results i did not expect.
 </p>
 
 <p align="center">𓆝 𓆟 𓆞 𓆝</p>
 
-## the short version
+## the quick version
 
-the audit passed 12 of 14 exploratory checks.
+12 of my 14 checks worked the way i expected.
 
-merlin separated the matching report from negated, contradictory, unrelated, and instruction-like text. its image representation also changed substantially when the scan was flipped, reversed, or intensity-inverted.
+merlin could tell the difference between the matching report and versions with negated findings, the wrong side of the body, contradictions, unrelated medical text, or a random instruction.
 
-two cases did not behave safely:
+it also reacted when i flipped the scan, reversed the slices, or inverted the image. that was good because those versions should not look identical to the model.
 
-1. blank text scored as more similar to the CT than the concise matching report
-2. an all-zero scan still produced finite embeddings and phenotype predictions instead of being rejected
+the two weird results were:
 
-those failures matter more than a perfect-looking score, so they are included in the harness and this write-up.
+1. blank text matched the CT more closely than my short, correct description did
+2. a scan made entirely of zeros still produced regular numbers instead of being rejected
 
-## text edge cases
+i kept both failures in here because they were the most interesting part of the experiment.
 
-| check | result | what happened |
+## the text tests
+
+| what i tried | result | what happened |
 | --- | --- | --- |
-| matching report vs. unrelated finding | pass | the matching report scored `0.0613` higher |
-| negated findings | pass | the matching report scored `0.0777` higher |
-| incorrect laterality | pass | the right-sided match scored `0.1024` higher than the left-sided version |
-| contradictory report | pass | the matching report scored `0.3533` higher |
-| instruction-like text | pass | the matching report scored `0.0649` higher |
-| blank text produces a finite embedding | pass | the model did not crash |
-| blank text is less similar than matching text | **fail** | blank text scored `0.2856`, while the concise match scored `0.1849` |
-| very long report | pass | the tokenizer truncated the input and returned a finite embedding |
+| matching report vs. an unrelated injury | pass | the matching text scored `0.0613` higher |
+| turning the findings into negatives | pass | the matching text scored `0.0777` higher |
+| changing right to left | pass | the correct side scored `0.1024` higher |
+| putting contradictions in the report | pass | the matching text scored `0.3533` higher |
+| adding a fake instruction | pass | the matching text scored `0.0649` higher |
+| sending blank text without crashing | pass | the model returned an embedding |
+| making sure blank text scored lower | **fail** | blank text scored `0.2856`, while my short match scored `0.1849` |
+| sending a very long report | pass | the text was shortened by the tokenizer and still ran |
 
-the blank-input result is the clearest text-side concern. an empty report should be rejected or scored as uninformative before similarity is used downstream.
+the blank-text result surprised me the most. if i were building an app with Merlin, i would block empty text before it ever reached the model.
 
-## image edge cases
+## the scan tests
 
-| input | result | embedding cosine to baseline | top-10 phenotype overlap |
+| what i changed | result | similarity to the original | shared top predictions |
 | --- | --- | ---: | ---: |
-| left-right flip | pass | `0.2832` | `40%` |
-| reversed slice order | pass | `0.5713` | `70%` |
-| intensity inversion | pass | `0.3287` | `50%` |
-| all-zero scan | **fail** | `0.1326` | `30%` |
+| flipped it left to right | pass | `0.2832` | `40%` |
+| reversed the slice order | pass | `0.5713` | `70%` |
+| inverted the intensities | pass | `0.3287` | `50%` |
+| replaced everything with zeros | **fail** | `0.1326` | `30%` |
 
-the model noticed the geometric and intensity changes, which is what this audit expected. however, the all-zero input still generated ordinary finite outputs. a production wrapper should validate scan content before calling the model.
+the first three changes clearly affected what Merlin produced. the zero scan also looked different to the model, but it still returned normal-looking outputs. i expected it to reject an input with no actual scan information.
 
-## file handling
+## broken and tiny files
 
-| check | result | what happened |
+| what i tried | result | what happened |
 | --- | --- | --- |
-| corrupt NIfTI | pass | preprocessing stopped with a `RuntimeError` |
-| undersized volume | pass | preprocessing padded it to `1 × 1 × 224 × 224 × 160` |
+| a fake, corrupted NIfTI file | pass | preprocessing stopped with a `RuntimeError` |
+| a very small volume | pass | preprocessing padded it to `1 × 1 × 224 × 224 × 160` |
 
-## what i would add next
+## what i would try next
 
-this run is intentionally small. a stronger follow-up would use multiple CTs with expert labels, test axis metadata rather than tensor flips alone, compare clinically equivalent paraphrases, and measure retrieval ranking across a real candidate set.
+this was only one sample scan, so the biggest next step would be repeating everything across more CTs.
 
-i would also add explicit guards for empty text, constant-valued scans, implausible intensity distributions, missing orientation metadata, and incomplete anatomical coverage.
+i would also test more ways of saying the same finding, scans with missing orientation information, partially cropped anatomy, and several kinds of empty or broken image data. it would be useful to see whether the blank-text issue happens consistently or was specific to this one scan.
 
-## scope and limitations
+## important context
 
-this was run on july 25, 2026 using Merlin's default image-text and phenotype checkpoint on CPU. the official `image1.nii.gz` sample was the only scan used, so these numbers do not estimate clinical accuracy or generalization.
+i ran this on july 25, 2026 using Merlin's default checkpoint and a CPU-only computer. the sample was the official `image1.nii.gz` file.
 
-the pass thresholds were written as exploratory software checks. they are not thresholds from the Merlin paper and should not be presented as published model performance.
+the pass and fail cutoffs are expectations i wrote for this experiment. they are not official Merlin benchmarks, and these results do not measure whether the model is clinically accurate.
 
-the radiology report generator was not tested. its separate checkpoint is roughly 25 GB, and the project documentation says that inference was tested on a 48 GB NVIDIA A6000 GPU.
+i could not test the separate report-generation checkpoint because it is around 25 GB and the project documentation describes running it on a 48 GB NVIDIA A6000 GPU.
 
-this audit is for research and engineering evaluation only. it is not medical advice and does not validate Merlin for clinical use.
+this is just a software experiment for learning about model edge cases. it is not medical advice and should not be used to diagnose anything.
 
 <p align="center">𓆝 𓆟 𓆞 𓆝</p>
