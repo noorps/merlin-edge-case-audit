@@ -3,4 +3,8 @@
 **/__pycache__/
 **/*.egg-info/
 **/checkpoints/
+edge_cases/data/
+edge_cases/cache/
+edge_cases/generated/
+edge_cases/results.json
 dist/*

@@ -6,6 +6,12 @@
 
 ![Key Graphic](documentation/assets/overview.png)
 
+## independent edge-case audit
+
+this fork includes a small, reproducible audit of Merlin's image-text behavior under negation, incorrect laterality, contradictory and blank text, scan flips, reversed slice order, intensity inversion, zero-valued input, corrupt files, and undersized volumes.
+
+the audit found 12 expected behaviors and 2 failure cases on the official sample CT. see the [test harness](edge_cases/run_edge_cases.py) and [documented results](edge_cases/RESULTS.md).
+
 ## ⚡️ Installation
 
 To install Merlin, you can simply run:
